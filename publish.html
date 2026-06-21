@@ -45,7 +45,7 @@
         </div>
 
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem;">
-          <button class="btn btn-primary" id="submit-btn">📤 去 GitHub 发布</button>
+          <button class="btn btn-primary" id="submit-btn">📤 去 Gitee 发布</button>
           <button class="btn btn-secondary" id="btn-clear">🗑️ 清空</button>
         </div>
       </div>
@@ -57,21 +57,21 @@
         <div style="display:grid;gap:1rem;">
           <div
             style="background:rgba(0,0,0,0.2);padding:1rem;border-radius:10px;border:1px solid rgba(255,255,255,0.05);">
-            <h4 style="margin-bottom:0.5rem;color:#fff;">1️⃣ 在 GitHub Issue 中写（推荐）</h4>
-            <p style="color:#9ca3af;font-size:0.9rem;line-height:1.7;">每篇博客 = GitHub 上的一个 Issue。直接在 GitHub 网站上编辑，支持完整的
+            <h4 style="margin-bottom:0.5rem;color:#fff;">1️⃣ 在 Gitee Issue 中写（推荐）</h4>
+            <p style="color:#9ca3af;font-size:0.9rem;line-height:1.7;">每篇博客 = Gitee 上的一个 Issue。直接在 Gitee 网站上编辑，支持完整的
               Markdown、图片上传功能。</p>
-            <p style="color:#6b7280;font-size:0.8rem;margin-top:0.5rem;">⚠️ 请先配置你的 GitHub 仓库，然后点击下方按钮：</p>
+            <p style="color:#6b7280;font-size:0.8rem;margin-top:0.5rem;">⚠️ 请先配置你的 Gitee 仓库，然后点击下方按钮：</p>
             <a id="github-link" href="#" target="_blank" class="btn btn-primary"
               style="margin-top:0.5rem;display:inline-block;">
-              ✍️ 在 GitHub 写文章
+              ✍️ 在 Gitee 写文章
             </a>
           </div>
 
           <div
             style="background:rgba(0,0,0,0.2);padding:1rem;border-radius:10px;border:1px solid rgba(255,255,255,0.05);">
-            <h4 style="margin-bottom:0.5rem;color:#fff;">2️⃣ 直接在 GitHub 网页上写</h4>
-            <p style="color:#9ca3af;font-size:0.9rem;line-height:1.7;">直接进入你的 GitHub 仓库 → Issues → New Issue → 填写标题和内容 →
-              添加标签 <code style="color:#a78bfa;">blog</code> → Submit new issue</p>
+            <h4 style="margin-bottom:0.5rem;color:#fff;">2️⃣ 直接在 Gitee 网页上写</h4>
+            <p style="color:#9ca3af;font-size:0.9rem;line-height:1.7;">直接进入你的 Gitee 仓库 → Issues → 新建 Issue → 填写标题和内容 →
+              添加标签 <code style="color:#a78bfa;">blog</code> → 提交</p>
             <a id="repo-link" href="#" target="_blank" class="btn btn-secondary"
               style="margin-top:0.5rem;display:inline-block;">
               🔗 查看 Issue 列表
@@ -134,7 +134,7 @@
       updatePreview();
     }
 
-    // GitHub 链接生成
+    // Gitee 链接生成
     function updateLinks () {
       const githubLink = document.getElementById('github-link');
       const repoLink = document.getElementById('repo-link');
@@ -148,7 +148,7 @@
         repoLink.style.background = '#4b5563';
       } else {
         githubLink.href = getNewIssueUrl();
-        githubLink.textContent = '✍️ 在 GitHub 写文章';
+        githubLink.textContent = '✍️ 在 Gitee 写文章';
         githubLink.style.background = '';
         repoLink.href = getRepoUrl() + '/issues';
         repoLink.textContent = '🔗 查看 Issue 列表';
@@ -158,18 +158,18 @@
 
     updateLinks();
 
-    // 去 GitHub 发布按钮
+    // 去 Gitee 发布按钮
     const submitBtn = document.getElementById('submit-btn');
     if (submitBtn) {
       submitBtn.onclick = () => {
         const title = titleEl ? titleEl.value.trim() : '';
         if (isDefaultConfig()) {
-          alert('请先在 app.js 中配置你的 GitHub 信息！');
+          alert('请先在 app.js 中配置你的 Gitee 信息！');
           return;
         }
 
         if (title) {
-          const url = `https://github.com/${CONFIG.githubUser}/${CONFIG.githubRepo}/issues/new?labels=${CONFIG.postLabel}&title=${encodeURIComponent(title)}`;
+          const url = `https://gitee.com/${CONFIG.giteeUser}/${CONFIG.giteeRepo}/issues/new?labels=${CONFIG.postLabel}&title=${encodeURIComponent(title)}`;
           window.open(url, '_blank');
         } else {
           window.open(getNewIssueUrl(), '_blank');

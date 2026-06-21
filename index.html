@@ -225,10 +225,10 @@
           <div class="empty-state">
             <h3>👋 请先配置博客</h3>
             <p style="max-width:480px;">打开 <code>app.js</code> 文件，修改第 15-18 行的配置：</p>
-            <pre style="background:rgba(0,0,0,0.4);color:#a78bfa;padding:1rem;border-radius:8px;text-align:left;display:inline-block;margin:1rem 0;font-size:0.85rem;line-height:1.6;">githubUser: '你的GitHub用户名',
-githubRepo: '你的仓库名',
+            <pre style="background:rgba(0,0,0,0.4);color:#a78bfa;padding:1rem;border-radius:8px;text-align:left;display:inline-block;margin:1rem 0;font-size:0.85rem;line-height:1.6;">giteeUser: '你的Gitee用户名',
+giteeRepo: '你的仓库名',
 postLabel: 'blog'</pre>
-            <p>然后在 GitHub 仓库的 Issues 中，新建一个 Issue，标题为文章标题，正文写 Markdown 内容，添加标签 <code>blog</code>。</p>
+            <p>然后在 Gitee 仓库的 Issues 中，新建一个 Issue，标题为文章标题，正文写 Markdown 内容，添加标签 <code>blog</code>。</p>
           </div>
         `;
         return;
@@ -238,14 +238,14 @@ postLabel: 'blog'</pre>
       container.innerHTML = `
         <div class="empty-state">
           <h3>⏳ 加载中...</h3>
-          <p>正在从 GitHub 读取文章</p>
-          <p style="color:#6b7280;font-size:0.8rem;margin-top:0.5rem;">配置: ${CONFIG.githubUser}/${CONFIG.githubRepo}</p>
+          <p>正在从 Gitee 读取文章</p>
+          <p style="color:#6b7280;font-size:0.8rem;margin-top:0.5rem;">配置: ${CONFIG.giteeUser}/${CONFIG.giteeRepo}</p>
         </div>
       `;
 
       try {
         console.log('开始获取文章...');
-        console.log('API URL:', `${CONFIG.githubUser}/${CONFIG.githubRepo}`);
+        console.log('Gitee 仓库:', `${CONFIG.giteeUser}/${CONFIG.giteeRepo}`);
 
         allPosts = await apiGetPosts();
         console.log('获取到文章:', allPosts.length, '篇');
@@ -254,10 +254,10 @@ postLabel: 'blog'</pre>
           container.innerHTML = `
             <div class="empty-state">
               <h3>📝 还没有文章</h3>
-              <p>在 GitHub 仓库的 Issues 中新建一篇吧</p>
+              <p>在 Gitee 仓库的 Issues 中新建一篇吧</p>
               <p style="color:#6b7280;font-size:0.85rem;margin:0.5rem 0;">记得添加 <code>blog</code> 标签！</p>
               <a href="${getNewIssueUrl()}" target="_blank" class="btn btn-primary" style="margin-top:1rem;">
-                ✍️ 去 GitHub 写文章
+                ✍️ 去 Gitee 写文章
               </a>
             </div>
           `;
@@ -274,9 +274,9 @@ postLabel: 'blog'</pre>
             <div style="margin-top:1.5rem;text-align:left;display:inline-block;">
               <p style="font-weight:500;margin-bottom:0.5rem;">请检查：</p>
               <ul style="line-height:1.8;font-size:0.9rem;color:#6b7280;">
-                <li>仓库 <code>${CONFIG.githubRepo}</code> 是否存在且公开</li>
+                <li>仓库 <code>${CONFIG.giteeRepo}</code> 是否存在且公开</li>
                 <li>是否在 Issues 中创建了带 <code>blog</code> 标签的文章</li>
-                <li>GitHub 用户名 <code>${CONFIG.githubUser}</code> 是否正确</li>
+                <li>Gitee 用户名 <code>${CONFIG.giteeUser}</code> 是否正确</li>
               </ul>
             </div>
           </div>
