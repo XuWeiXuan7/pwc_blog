@@ -25,10 +25,11 @@
   </header>
 
   <main class="container">
-    <!-- 搜索框 -->
+    <!-- 搜索框 + 刷新按钮 -->
     <div class="search-box">
       <input type="text" id="search-input" placeholder="🔍 搜索文章标题..." autocomplete="off">
       <span id="search-count"></span>
+      <button id="refresh-btn" class="mini-btn" title="从 Gitee 重新获取（忽略缓存）">🔄 刷新</button>
     </div>
 
     <!-- Gitee Token 输入（解决 403 Rate Limit 问题） -->
@@ -281,10 +282,19 @@
           showToast('Token 已清除');
         });
       }
+
+      // 刷新按钮：强制重新加载（忽略缓存）
+      const refreshBtn = document.getElementById('refresh-btn');
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+          showToast('正在从 Gitee 重新获取...');
+          loadPosts(true);
+        });
+      }
     });
 
     // ============ 加载文章 ============
-    async function loadPosts () {
+    async function loadPosts (force) {
       const container = document.getElementById('post-list');
 
       if (isDefaultConfig()) {
@@ -315,7 +325,7 @@ postLabel: 'blog'</pre>
       `;
 
       try {
-        allPosts = await apiGetPosts();
+        allPosts = await apiGetPosts(force);
 
         if (allPosts.length === 0) {
           container.innerHTML = `

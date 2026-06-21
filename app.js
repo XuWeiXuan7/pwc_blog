@@ -57,16 +57,23 @@ const CORS_PROXIES = [
   }
 ];
 
-async function fetchGiteeJson(url, { method = 'GET', useToken = true } = {}) {
+async function fetchGiteeJson(url, { method = 'GET', useToken = true, force = false } = {}) {
   // 构造带 token 的请求 URL（Gitee 使用 access_token 查询参数）
+  // + 附加时间戳以绕过 HTTP 缓存（特别是代理服务的缓存）
   const token = useToken ? getGiteeToken() : '';
   const sep = url.includes('?') ? '&' : '?';
-  const finalUrl = token ? `${url}${sep}access_token=${encodeURIComponent(token)}` : url;
+  const cacheBuster = `_t=${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+  let finalUrl = `${url}${sep}${cacheBuster}`;
+  if (token) {
+    finalUrl += `&access_token=${encodeURIComponent(token)}`;
+  }
 
   // 构建代理列表：先直连，再依次尝试代理
   const attempts = [{ name: 'direct', url: finalUrl }].concat(
     CORS_PROXIES.map(p => ({ name: p.name, url: p.build(finalUrl) }))
   );
+
+  const cacheMode = force ? 'no-store' : 'no-cache';
 
   let lastErr = null;
   for (const attempt of attempts) {
@@ -74,10 +81,15 @@ async function fetchGiteeJson(url, { method = 'GET', useToken = true } = {}) {
       console.log(`[Gitee] 请求 (${attempt.name}):`, attempt.url);
       const res = await fetch(attempt.url, {
         method,
-        headers: { 'Accept': 'application/json' }
+        cache: cacheMode,
+        headers: {
+          'Accept': 'application/json',
+          'Pragma': 'no-cache',
+          'Cache-Control': 'no-cache, no-store'
+        }
       });
       const text = await res.text();
-      console.log(`[Gitee] 响应 (${attempt.name}): HTTP ${res.status}`);
+      console.log(`[Gitee] 响应 (${attempt.name}): HTTP ${res.status}, 长度: ${text.length}`);
 
       if (res.ok) {
         try {
@@ -120,17 +132,17 @@ async function fetchGiteeJson(url, { method = 'GET', useToken = true } = {}) {
   throw lastErr || new Error('所有请求方式均失败');
 }
 
-async function apiGetPosts() {
+async function apiGetPosts(force = false) {
   const url = `${GITEE_API}/repos/${CONFIG.giteeUser}/${CONFIG.giteeRepo}/issues?labels=${encodeURIComponent(CONFIG.postLabel)}&state=open&sort=created&page=1&per_page=100`;
-  const issues = await fetchGiteeJson(url);
+  const issues = await fetchGiteeJson(url, { force });
   console.log('[Gitee] 解析成功，Issue 数量:', issues.length);
   return issues.map(issue => issueToPost(issue));
 }
 
-async function apiGetPost(number) {
+async function apiGetPost(number, force = false) {
   const url = `${GITEE_API}/repos/${CONFIG.giteeUser}/${CONFIG.giteeRepo}/issues/${number}`;
   try {
-    const issue = await fetchGiteeJson(url);
+    const issue = await fetchGiteeJson(url, { force });
     return issueToPost(issue);
   } catch (e) {
     return null;
