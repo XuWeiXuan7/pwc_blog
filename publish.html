@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>写文章 - Xu Shuo Blog</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <!-- 粒子背景 -->
+  <div id="particles-bg"></div>
+  <div id="grid-bg"></div>
+
+  <header class="header">
+    <h1>Xu Shuo Blog</h1>
+    <p class="subtitle">记录生活的点滴</p>
+    <nav class="nav">
+      <a href="index.html">首页</a>
+      <a href="publish.html">写文章</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="publish-card">
+      <h2>✍️ 发布新文章</h2>
+
+      <div id="write-section" style="display:none;">
+        <div class="form-group">
+          <label for="title">文章标题</label>
+          <input type="text" id="title" placeholder="输入文章标题"
+            style="width:100%;padding:0.6rem;border:1px solid rgba(255,255,255,0.1);border-radius:10px;font-size:0.95rem;background:rgba(0,0,0,0.3);color:#fff;">
+        </div>
+
+        <div class="form-group">
+          <label for="content">文章内容 (Markdown)</label>
+          <textarea id="content" placeholder="# 标题&#10;&#10;这里写内容..."
+            style="width:100%;padding:0.6rem;border:1px solid rgba(255,255,255,0.1);border-radius:10px;font-size:0.95rem;background:rgba(0,0,0,0.3);color:#fff;"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>👀 实时预览</label>
+          <div id="preview" class="preview-box"></div>
+        </div>
+
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem;">
+          <button class="btn btn-primary" id="submit-btn">📤 去 GitHub 发布</button>
+          <button class="btn btn-secondary" id="btn-clear">🗑️ 清空</button>
+        </div>
+      </div>
+
+      <div id="config-section"
+        style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:12px;padding:1.5rem;">
+        <h3 style="margin-bottom:1rem;font-size:1.1rem;color:#fff;">📚 写文章的方式</h3>
+
+        <div style="display:grid;gap:1rem;">
+          <div
+            style="background:rgba(0,0,0,0.2);padding:1rem;border-radius:10px;border:1px solid rgba(255,255,255,0.05);">
+            <h4 style="margin-bottom:0.5rem;color:#fff;">1️⃣ 在 GitHub Issue 中写（推荐）</h4>
+            <p style="color:#9ca3af;font-size:0.9rem;line-height:1.7;">每篇博客 = GitHub 上的一个 Issue。直接在 GitHub 网站上编辑，支持完整的
+              Markdown、图片上传功能。</p>
+            <p style="color:#6b7280;font-size:0.8rem;margin-top:0.5rem;">⚠️ 请先配置你的 GitHub 仓库，然后点击下方按钮：</p>
+            <a id="github-link" href="#" target="_blank" class="btn btn-primary"
+              style="margin-top:0.5rem;display:inline-block;">
+              ✍️ 在 GitHub 写文章
+            </a>
+          </div>
+
+          <div
+            style="background:rgba(0,0,0,0.2);padding:1rem;border-radius:10px;border:1px solid rgba(255,255,255,0.05);">
+            <h4 style="margin-bottom:0.5rem;color:#fff;">2️⃣ 直接在 GitHub 网页上写</h4>
+            <p style="color:#9ca3af;font-size:0.9rem;line-height:1.7;">直接进入你的 GitHub 仓库 → Issues → New Issue → 填写标题和内容 →
+              添加标签 <code style="color:#a78bfa;">blog</code> → Submit new issue</p>
+            <a id="repo-link" href="#" target="_blank" class="btn btn-secondary"
+              style="margin-top:0.5rem;display:inline-block;">
+              🔗 查看 Issue 列表
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>© 2026 wxCode Blog</p>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+  <script>
+    // 粒子效果
+    function initParticles () {
+      const container = document.getElementById('particles-bg');
+      if (!container) return;
+
+      const particleCount = 60;
+      const colors = ['#a78bfa', '#f472b6', '#34d399', '#fbbf24', '#60a5fa'];
+
+      for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.top = Math.random() * 100 + '%';
+        particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+        const size = Math.random() * 4 + 2;
+        particle.style.width = size + 'px';
+        particle.style.height = size + 'px';
+        particle.style.animationDelay = Math.random() * 10 + 's';
+        particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+        particle.style.opacity = Math.random() * 0.5 + 0.3;
+        container.appendChild(particle);
+      }
+    }
+
+    // 预览
+    const titleEl = document.getElementById('title');
+    const contentEl = document.getElementById('content');
+    const previewEl = document.getElementById('preview');
+
+    function updatePreview () {
+      if (!contentEl || !previewEl) return;
+      const content = contentEl.value;
+      if (!content.trim()) {
+        previewEl.innerHTML = '<p style="color:#6b7280;font-size:0.9rem;">开始编辑后这里会显示预览...</p>';
+        return;
+      }
+      previewEl.innerHTML = parseMarkdown(content);
+    }
+
+    if (contentEl) {
+      contentEl.addEventListener('input', updatePreview);
+      updatePreview();
+    }
+
+    // GitHub 链接生成
+    function updateLinks () {
+      const githubLink = document.getElementById('github-link');
+      const repoLink = document.getElementById('repo-link');
+
+      if (isDefaultConfig()) {
+        githubLink.href = '#';
+        githubLink.textContent = '⚙️ 请先配置仓库信息';
+        githubLink.style.background = '#4b5563';
+        repoLink.href = '#';
+        repoLink.textContent = '⚙️ 请先配置仓库信息';
+        repoLink.style.background = '#4b5563';
+      } else {
+        githubLink.href = getNewIssueUrl();
+        githubLink.textContent = '✍️ 在 GitHub 写文章';
+        githubLink.style.background = '';
+        repoLink.href = getRepoUrl() + '/issues';
+        repoLink.textContent = '🔗 查看 Issue 列表';
+        repoLink.style.background = '';
+      }
+    }
+
+    updateLinks();
+
+    // 去 GitHub 发布按钮
+    const submitBtn = document.getElementById('submit-btn');
+    if (submitBtn) {
+      submitBtn.onclick = () => {
+        const title = titleEl ? titleEl.value.trim() : '';
+        if (isDefaultConfig()) {
+          alert('请先在 app.js 中配置你的 GitHub 信息！');
+          return;
+        }
+
+        if (title) {
+          const url = `https://github.com/${CONFIG.githubUser}/${CONFIG.githubRepo}/issues/new?labels=${CONFIG.postLabel}&title=${encodeURIComponent(title)}`;
+          window.open(url, '_blank');
+        } else {
+          window.open(getNewIssueUrl(), '_blank');
+        }
+      };
+    }
+
+    // 清空按钮
+    const clearBtn = document.getElementById('btn-clear');
+    if (clearBtn) {
+      clearBtn.onclick = () => {
+        if (titleEl) titleEl.value = '';
+        if (contentEl) contentEl.value = '';
+        updatePreview();
+        showToast('已清空', 'info');
+      };
+    }
+
+    initParticles();
+  </script>
+</body>
+
+</html>

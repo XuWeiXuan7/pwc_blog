@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xu Shuo Blog</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <!-- 粒子背景 -->
+  <div id="particles-bg"></div>
+  <div id="grid-bg"></div>
+
+  <header class="header">
+    <h1>Xu Shuo Blog</h1>
+    <p class="subtitle">记录生活的点滴</p>
+    <nav class="nav">
+      <a href="index.html">首页</a>
+      <a href="publish.html">写文章</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- 搜索框 -->
+    <div class="search-box">
+      <input type="text" id="search-input" placeholder="🔍 搜索文章标题..." autocomplete="off">
+      <span id="search-count"></span>
+    </div>
+
+    <div id="post-list" class="post-list">
+      <div class="empty-state">
+        <h3>加载中...</h3>
+        <p>正在从 GitHub 读取文章</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>© 2026 Xu Shuo Blog · Powered by GitHub Issues</p>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+  <script>
+    let allPosts = []; // 保存所有文章
+
+    // ============ 粒子效果 ============
+    function initParticles () {
+      const container = document.getElementById('particles-bg');
+      if (!container) return;
+
+      const particleCount = 80;
+      const colors = ['#a78bfa', '#f472b6', '#34d399', '#fbbf24', '#60a5fa'];
+
+      for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+
+        // 随机位置
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.top = Math.random() * 100 + '%';
+
+        // 随机颜色
+        particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+
+        // 随机大小
+        const size = Math.random() * 4 + 2;
+        particle.style.width = size + 'px';
+        particle.style.height = size + 'px';
+
+        // 随机动画延迟和时长
+        particle.style.animationDelay = Math.random() * 10 + 's';
+        particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+
+        // 随机透明度
+        particle.style.opacity = Math.random() * 0.5 + 0.3;
+
+        container.appendChild(particle);
+      }
+
+      // 添加连线效果
+      const particles = document.querySelectorAll('.particle');
+      particles.forEach((p1, i) => {
+        particles.forEach((p2, j) => {
+          if (i < j) {
+            const x1 = parseFloat(p1.style.left);
+            const y1 = parseFloat(p1.style.top);
+            const x2 = parseFloat(p2.style.left);
+            const y2 = parseFloat(p2.style.top);
+            const distance = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+
+            if (distance < 15) {
+              const line = document.createElement('div');
+              line.style.position = 'absolute';
+              line.style.top = 0;
+              line.style.left = 0;
+              line.style.width = '1px';
+              line.style.height = '1px';
+              line.style.background = 'rgba(167, 139, 250, 0.15)';
+              line.style.zIndex = 0;
+              container.appendChild(line);
+            }
+          }
+        });
+      });
+    }
+
+    // ============ 渲染文章列表 ============
+    function renderPosts (posts) {
+      const container = document.getElementById('post-list');
+      const searchCount = document.getElementById('search-count');
+
+      if (posts.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <h3>没有找到文章</h3>
+            <p>换个关键词试试吧</p>
+          </div>
+        `;
+        searchCount.textContent = '';
+        return;
+      }
+
+      // 显示搜索结果数量
+      if (searchCount) {
+        searchCount.textContent = `找到 ${posts.length} 篇文章`;
+      }
+
+      container.innerHTML = posts.map(post => `
+        <article class="post-card">
+          <h2><a href="post.html?id=${post.slug}">${escapeHtml(post.title)}</a></h2>
+          <div class="post-meta">
+            <span>📅 ${post.date}</span>
+            <span>👤 ${escapeHtml(post.author)}</span>
+            ${post.tags.map(t => `<span class="tag">#${escapeHtml(t)}</span>`).join('')}
+          </div>
+          <p class="post-summary">${escapeHtml(post.summary)}</p>
+          <a class="read-more" href="post.html?id=${post.slug}">阅读全文 →</a>
+        </article>
+      `).join('');
+    }
+
+    // ============ 模糊搜索 ============
+    function fuzzySearch (posts, keyword) {
+      if (!keyword.trim()) return posts;
+
+      const kw = keyword.toLowerCase();
+      return posts.filter(post => {
+        const title = post.title.toLowerCase();
+        // 包含匹配
+        if (title.includes(kw)) return true;
+        // 拼音首字母匹配（可选）
+        // 简拼匹配：提取标题中每个汉字拼音的首字母
+        const pinyinInitials = getPinyinInitials(post.title).toLowerCase();
+        if (pinyinInitials.includes(kw)) return true;
+        return false;
+      });
+    }
+
+    // ============ 汉字转拼音首字母 ============
+    function getPinyinInitials (str) {
+      const pinyinMap = {
+        'a': 'a', 'ai': 'a', 'an': 'a', 'ang': 'a',
+        'ba': 'b', 'bai': 'b', 'ban': 'b', 'bang': 'b', 'bao': 'b', 'be': 'b', 'bei': 'b', 'ben': 'b', 'beng': 'b', 'bi': 'b', 'bian': 'b', 'biao': 'b', 'bie': 'b', 'bin': 'b', 'bing': 'b', 'bo': 'b', 'bu': 'b',
+        'ca': 'c', 'cai': 'c', 'can': 'c', 'cang': 'c', 'cao': 'c', 'ce': 'c', 'cen': 'c', 'ceng': 'c', 'cha': 'c', 'chai': 'c', 'chan': 'c', 'chang': 'c', 'chao': 'c', 'che': 'c', 'chen': 'c', 'cheng': 'c', 'chi': 'c', 'chong': 'c', 'chou': 'c', 'chu': 'c', 'chuai': 'c', 'chuan': 'c', 'chuang': 'c', 'chui': 'c', 'chun': 'c', 'chuo': 'c', 'ci': 'c', 'cong': 'c', 'cou': 'c', 'cu': 'c', 'cuan': 'c', 'cui': 'c', 'cun': 'c', 'cuo': 'c',
+        'da': 'd', 'dai': 'd', 'dan': 'd', 'dang': 'd', 'dao': 'd', 'de': 'd', 'deng': 'd', 'di': 'd', 'dian': 'd', 'diao': 'd', 'die': 'd', 'ding': 'd', 'diu': 'd', 'dong': 'd', 'dou': 'd', 'du': 'd', 'duan': 'd', 'dui': 'd', 'dun': 'd', 'duo': 'd',
+        'e': 'e', 'en': 'e', 'er': 'e',
+        'fa': 'f', 'fan': 'f', 'fang': 'f', 'fei': 'f', 'fen': 'f', 'feng': 'f', 'fo': 'f', 'fou': 'f', 'fu': 'f',
+        'ga': 'g', 'gai': 'g', 'gan': 'g', 'gang': 'g', 'gao': 'g', 'ge': 'g', 'gei': 'g', 'gen': 'g', 'geng': 'g', 'gong': 'g', 'gou': 'g', 'gu': 'g', 'gua': 'g', 'guai': 'g', 'guan': 'g', 'guang': 'g', 'gui': 'g', 'gun': 'g', 'guo': 'g',
+        'ha': 'h', 'hai': 'h', 'han': 'h', 'hang': 'h', 'hao': 'h', 'he': 'h', 'hei': 'h', 'hen': 'h', 'heng': 'h', 'hong': 'h', 'hou': 'h', 'hu': 'h', 'hua': 'h', 'huai': 'h', 'huan': 'h', 'huang': 'h', 'hui': 'h', 'hun': 'h', 'huo': 'h',
+        'ji': 'j', 'jia': 'j', 'jian': 'j', 'jiang': 'j', 'jiao': 'j', 'jie': 'j', 'jin': 'j', 'jing': 'j', 'jiong': 'j', 'jiu': 'j', 'ju': 'j', 'juan': 'j', 'jue': 'j', 'jun': 'j',
+        'ka': 'k', 'kai': 'k', 'kan': 'k', 'kang': 'k', 'kao': 'k', 'ke': 'k', 'ken': 'k', 'keng': 'k', 'kong': 'k', 'kou': 'k', 'ku': 'k', 'kua': 'k', 'kuai': 'k', 'kuan': 'k', 'kuang': 'k', 'kui': 'k', 'kun': 'k', 'kuo': 'k',
+        'la': 'l', 'lai': 'l', 'lan': 'l', 'lang': 'l', 'lao': 'l', 'le': 'l', 'lei': 'l', 'leng': 'l', 'li': 'l', 'lia': 'l', 'lian': 'l', 'liang': 'l', 'liao': 'l', 'lie': 'l', 'lin': 'l', 'ling': 'l', 'liu': 'l', 'long': 'l', 'lou': 'l', 'lu': 'l', 'lv': 'l', 'luan': 'l', 'lue': 'l', 'lun': 'l', 'luo': 'l',
+        'ma': 'm', 'mai': 'm', 'man': 'm', 'mang': 'm', 'mao': 'm', 'me': 'm', 'mei': 'm', 'men': 'm', 'meng': 'm', 'mi': 'm', 'mian': 'm', 'miao': 'm', 'mie': 'm', 'min': 'm', 'ming': 'm', 'miu': 'm', 'mo': 'm', 'mou': 'm', 'mu': 'm',
+        'na': 'n', 'nai': 'n', 'nan': 'n', 'nang': 'n', 'nao': 'n', 'ne': 'n', 'nei': 'n', 'nen': 'n', 'neng': 'n', 'ni': 'n', 'nian': 'n', 'niang': 'n', 'niao': 'n', 'nie': 'n', 'nin': 'n', 'ning': 'n', 'niu': 'n', 'nong': 'n', 'nu': 'n', 'nuan': 'n', 'nue': 'n', 'nuo': 'n',
+        'ou': 'o',
+        'pa': 'p', 'pai': 'p', 'pan': 'p', 'pang': 'p', 'pao': 'p', 'pe': 'p', 'pei': 'p', 'pen': 'p', 'peng': 'p', 'pi': 'p', 'pian': 'p', 'piao': 'p', 'pie': 'p', 'pin': 'p', 'ping': 'p', 'po': 'p', 'pou': 'p', 'pu': 'p',
+        'qi': 'q', 'qia': 'q', 'qian': 'q', 'qiang': 'q', 'qiao': 'q', 'qie': 'q', 'qin': 'q', 'qing': 'q', 'qiong': 'q', 'qiu': 'q', 'qu': 'q', 'quan': 'q', 'que': 'q', 'qun': 'q',
+        'ran': 'r', 'rang': 'r', 'rao': 'r', 're': 'r', 'ren': 'r', 'reng': 'r', 'ri': 'r', 'rong': 'r', 'rou': 'r', 'ru': 'r', 'ruan': 'r', 'rui': 'r', 'run': 'r', 'ruo': 'r',
+        'sa': 's', 'sai': 's', 'san': 's', 'sang': 's', 'sao': 's', 'se': 's', 'sen': 's', 'seng': 's', 'sha': 's', 'shai': 's', 'shan': 's', 'shang': 's', 'shao': 's', 'she': 's', 'shen': 's', 'sheng': 's', 'shi': 's', 'shou': 's', 'shu': 's', 'shua': 's', 'shuai': 's', 'shuan': 's', 'shuang': 's', 'shui': 's', 'shun': 's', 'shuo': 's', 'si': 's', 'song': 's', 'sou': 's', 'su': 's', 'suan': 's', 'sui': 's', 'sun': 's', 'suo': 's',
+        'ta': 't', 'tai': 't', 'tan': 't', 'tang': 't', 'tao': 't', 'te': 't', 'teng': 't', 'ti': 't', 'tian': 't', 'tiao': 't', 'tie': 't', 'ting': 't', 'tong': 't', 'tou': 't', 'tu': 't', 'tuan': 't', 'tui': 't', 'tun': 't', 'tuo': 't',
+        'wa': 'w', 'wai': 'w', 'wan': 'w', 'wang': 'w', 'wei': 'w', 'wen': 'w', 'weng': 'w', 'wo': 'w', 'wu': 'w',
+        'xi': 'x', 'xia': 'x', 'xian': 'x', 'xiang': 'x', 'xiao': 'x', 'xie': 'x', 'xin': 'x', 'xing': 'x', 'xiong': 'x', 'xiu': 'x', 'xu': 'x', 'xuan': 'x', 'xue': 'x', 'xun': 'x',
+        'ya': 'y', 'yai': 'y', 'yan': 'y', 'yang': 'y', 'yao': 'y', 'ye': 'y', 'yi': 'y', 'yin': 'y', 'ying': 'y', 'yo': 'y', 'yong': 'y', 'you': 'y', 'yu': 'y', 'yuan': 'y', 'yue': 'y', 'yun': 'y',
+        'za': 'z', 'zai': 'z', 'zan': 'z', 'zang': 'z', 'zao': 'z', 'ze': 'z', 'zei': 'z', 'zen': 'z', 'zeng': 'z', 'zha': 'z', 'zhai': 'z', 'zhan': 'z', 'zhang': 'z', 'zhao': 'z', 'zhe': 'z', 'zhen': 'z', 'zheng': 'z', 'zhi': 'z', 'zhong': 'z', 'zhou': 'z', 'zhu': 'z', 'zhua': 'z', 'zhuai': 'z', 'zhuan': 'z', 'zhuang': 'z', 'zhui': 'z', 'zhun': 'z', 'zhuo': 'z', 'zi': 'z', 'zong': 'z', 'zou': 'z', 'zu': 'z', 'zuan': 'z', 'zui': 'z', 'zun': 'z', 'zuo': 'z'
+      };
+
+      let result = '';
+      for (let char of str) {
+        const code = char.charCodeAt(0);
+        if (code >= 0x4e00 && code <= 0x9fa5) {
+          // 汉字：返回拼音首字母（这里简化处理，返回空或单个字母）
+          // 完整实现需要完整的汉字拼音库，这里做简化
+          result += char; // 保留汉字
+        } else if (/[a-zA-Z]/.test(char)) {
+          result += char.toLowerCase();
+        }
+      }
+      return result;
+    }
+
+    // ============ 搜索事件 ============
+    document.addEventListener('DOMContentLoaded', () => {
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          const keyword = e.target.value;
+          const filteredPosts = fuzzySearch(allPosts, keyword);
+          renderPosts(filteredPosts);
+        });
+      }
+    });
+
+    // ============ 加载文章 ============
+    async function loadPosts () {
+      const container = document.getElementById('post-list');
+
+      if (isDefaultConfig()) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <h3>👋 请先配置博客</h3>
+            <p style="max-width:480px;">打开 <code>app.js</code> 文件，修改第 15-18 行的配置：</p>
+            <pre style="background:rgba(0,0,0,0.4);color:#a78bfa;padding:1rem;border-radius:8px;text-align:left;display:inline-block;margin:1rem 0;font-size:0.85rem;line-height:1.6;">githubUser: '你的GitHub用户名',
+githubRepo: '你的仓库名',
+postLabel: 'blog'</pre>
+            <p>然后在 GitHub 仓库的 Issues 中，新建一个 Issue，标题为文章标题，正文写 Markdown 内容，添加标签 <code>blog</code>。</p>
+          </div>
+        `;
+        return;
+      }
+
+      // 显示加载状态
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>⏳ 加载中...</h3>
+          <p>正在从 GitHub 读取文章</p>
+          <p style="color:#6b7280;font-size:0.8rem;margin-top:0.5rem;">配置: ${CONFIG.githubUser}/${CONFIG.githubRepo}</p>
+        </div>
+      `;
+
+      try {
+        console.log('开始获取文章...');
+        console.log('API URL:', `${CONFIG.githubUser}/${CONFIG.githubRepo}`);
+
+        allPosts = await apiGetPosts();
+        console.log('获取到文章:', allPosts.length, '篇');
+
+        if (allPosts.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <h3>📝 还没有文章</h3>
+              <p>在 GitHub 仓库的 Issues 中新建一篇吧</p>
+              <p style="color:#6b7280;font-size:0.85rem;margin:0.5rem 0;">记得添加 <code>blog</code> 标签！</p>
+              <a href="${getNewIssueUrl()}" target="_blank" class="btn btn-primary" style="margin-top:1rem;">
+                ✍️ 去 GitHub 写文章
+              </a>
+            </div>
+          `;
+          return;
+        }
+
+        renderPosts(allPosts);
+      } catch (e) {
+        console.error('加载失败:', e);
+        container.innerHTML = `
+          <div class="empty-state">
+            <h3>❌ 加载失败</h3>
+            <p style="color:#9ca3af;font-size:0.9rem;">错误信息：${escapeHtml(e.message)}</p>
+            <div style="margin-top:1.5rem;text-align:left;display:inline-block;">
+              <p style="font-weight:500;margin-bottom:0.5rem;">请检查：</p>
+              <ul style="line-height:1.8;font-size:0.9rem;color:#6b7280;">
+                <li>仓库 <code>${CONFIG.githubRepo}</code> 是否存在且公开</li>
+                <li>是否在 Issues 中创建了带 <code>blog</code> 标签的文章</li>
+                <li>GitHub 用户名 <code>${CONFIG.githubUser}</code> 是否正确</li>
+              </ul>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // 初始化
+    initParticles();
+    loadPosts();
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "wxcode-blog",
+  "version": "1.0.0",
+  "description": "基于 GitHub Issues 的纯静态博客，部署在 GitHub Pages",
+  "main": "index.html",
+  "keywords": ["blog", "github", "github-pages", "static-site"],
+  "author": "",
+  "license": "MIT"
+}

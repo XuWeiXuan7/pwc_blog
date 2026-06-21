@@ -1,0 +1,26 @@
+# Build output
+public/
+build/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.DS_Store
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# OS
+Thumbs.db
