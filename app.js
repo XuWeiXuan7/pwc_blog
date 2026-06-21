@@ -14,38 +14,136 @@
 // ============ 配置（请修改为你的 Gitee 用户名和仓库名） ============
 const CONFIG = {
   giteeUser: 'xu-weixuan7', // 你的 Gitee 用户名
-  giteeRepo: 'pwc_blog', // 你的 Gitee 仓库名
-  postLabel: 'blog' // 标记为文章的标签，只有带这个标签的 Issue 才会显示
+  giteeRepo: 'pwc_blog',     // 你的 Gitee 仓库名
+  postLabel: 'blog'          // 标记为文章的标签，只有带这个标签的 Issue 才会显示
 };
 
 // ============ Gitee API ============
 const GITEE_API = 'https://gitee.com/api/v5';
 
-async function apiGetPosts() {
-  const url = `${GITEE_API}/repos/${CONFIG.giteeUser}/${CONFIG.giteeRepo}/issues?labels=${CONFIG.postLabel}&state=open&sort=created&page=1&per_page=100`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`获取文章失败 (${res.status})，请检查仓库是否公开或 Issue 是否存在`);
-  const issues = await res.json();
+// 获取 Gitee Access Token（解决匿名请求被限流 403 的问题）
+// 用户可以在页面上设置 Token，也可以硬编码（不推荐，因为前端代码会公开）
+function getGiteeToken() {
+  try {
+    return localStorage.getItem('gitee_token') || '';
+  } catch (e) {
+    return '';
+  }
+}
 
+function setGiteeToken(token) {
+  try {
+    if (token) {
+      localStorage.setItem('gitee_token', token);
+    } else {
+      localStorage.removeItem('gitee_token');
+    }
+  } catch (e) {}
+}
+
+// CORS 代理列表（按顺序尝试）
+const CORS_PROXIES = [
+  {
+    name: 'corsproxy.io',
+    build: (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
+  },
+  {
+    name: 'allorigins',
+    build: (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+  },
+  {
+    name: 'codetabs',
+    build: (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+  }
+];
+
+async function fetchGiteeJson(url, { method = 'GET', useToken = true } = {}) {
+  // 构造带 token 的请求 URL（Gitee 使用 access_token 查询参数）
+  const token = useToken ? getGiteeToken() : '';
+  const sep = url.includes('?') ? '&' : '?';
+  const finalUrl = token ? `${url}${sep}access_token=${encodeURIComponent(token)}` : url;
+
+  // 构建代理列表：先直连，再依次尝试代理
+  const attempts = [{ name: 'direct', url: finalUrl }].concat(
+    CORS_PROXIES.map(p => ({ name: p.name, url: p.build(finalUrl) }))
+  );
+
+  let lastErr = null;
+  for (const attempt of attempts) {
+    try {
+      console.log(`[Gitee] 请求 (${attempt.name}):`, attempt.url);
+      const res = await fetch(attempt.url, {
+        method,
+        headers: { 'Accept': 'application/json' }
+      });
+      const text = await res.text();
+      console.log(`[Gitee] 响应 (${attempt.name}): HTTP ${res.status}`);
+
+      if (res.ok) {
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          // 如果代理返回非 JSON（例如成功但返回 HTML），跳过
+          lastErr = new Error(`响应格式错误（非 JSON）`);
+          continue;
+        }
+      }
+
+      // 非 2xx 的响应
+      let msg = `HTTP ${res.status}`;
+      try {
+        const err = JSON.parse(text);
+        if (err.message) msg += ': ' + err.message;
+      } catch (e) {}
+      // 附加 Rate Limit 信息（如果有）
+      const rlLimit = res.headers.get('X-RateLimit-Limit');
+      const rlRemain = res.headers.get('X-RateLimit-Remaining');
+      if (rlRemain !== null) {
+        msg += `（Rate: ${rlRemain}/${rlLimit}）`;
+      }
+      lastErr = new Error(msg);
+
+      // 404/403 等客户端错误不需要换代理（除非是 CORS 问题，但这里 CORS 错误在 catch 中处理）
+      if (res.status === 404 || res.status === 403 || res.status === 401 || res.status === 422) {
+        // 但 403 可能是限流，值得尝试 token
+        if (res.status === 403 && !token && attempt.name === 'direct') {
+          continue;
+        }
+        throw lastErr;
+      }
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[Gitee] ${attempt.name} 失败:`, err.message);
+    }
+  }
+
+  throw lastErr || new Error('所有请求方式均失败');
+}
+
+async function apiGetPosts() {
+  const url = `${GITEE_API}/repos/${CONFIG.giteeUser}/${CONFIG.giteeRepo}/issues?labels=${encodeURIComponent(CONFIG.postLabel)}&state=open&sort=created&page=1&per_page=100`;
+  const issues = await fetchGiteeJson(url);
+  console.log('[Gitee] 解析成功，Issue 数量:', issues.length);
   return issues.map(issue => issueToPost(issue));
 }
 
 async function apiGetPost(number) {
   const url = `${GITEE_API}/repos/${CONFIG.giteeUser}/${CONFIG.giteeRepo}/issues/${number}`;
-  const res = await fetch(url);
-  if (!res.ok) return null;
-  const issue = await res.json();
-  return issueToPost(issue);
+  try {
+    const issue = await fetchGiteeJson(url);
+    return issueToPost(issue);
+  } catch (e) {
+    return null;
+  }
 }
 
 function issueToPost(issue) {
-  // Gitee 的数据结构：issue.user 包含用户信息
   return {
-    slug: issue.number,
-    title: issue.title,
-    date: issue.created_at ? issue.created_at.slice(0, 10) : '',
+    slug: issue.number || issue.id,
+    title: issue.title || '无标题',
+    date: (issue.created_at || '').slice(0, 10),
     tags: issue.labels ? issue.labels.map(l => l.name).filter(l => l !== CONFIG.postLabel) : [],
-    author: issue.user ? issue.user.login : '匿名',
+    author: issue.user ? (issue.user.login || issue.user.name || '匿名') : '匿名',
     authorAvatar: issue.user ? issue.user.avatar_url : '',
     summary: (issue.body || '').replace(/<[^>]+>/g, '').replace(/[#>*`_\-*]/g, '').replace(/\s+/g, ' ').trim().slice(0, 150),
     content: issue.body || '（这篇文章暂无内容）'

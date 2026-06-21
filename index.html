@@ -31,6 +31,29 @@
       <span id="search-count"></span>
     </div>
 
+    <!-- Gitee Token 输入（解决 403 Rate Limit 问题） -->
+    <div class="token-box" id="token-box">
+      <details>
+        <summary>🔑 Gitee API 被限流？点击设置 Access Token</summary>
+        <div class="token-panel">
+          <p style="margin:0 0 0.75rem 0;color:#d1d5db;font-size:0.88rem;line-height:1.6;">
+            Gitee 匿名 API 每小时只能请求约 60 次，很容易被限流返回 403。设置个人 Token 后可提升到 5000 次/小时。
+          </p>
+          <ol style="margin:0 0 0.75rem 1.5rem;color:#d1d5db;font-size:0.85rem;line-height:1.8;">
+            <li>打开 <a href="https://gitee.com/profile/personal_access_tokens" target="_blank" style="color:#a78bfa;">Gitee 个人令牌设置页</a></li>
+            <li>点击「生成新令牌」→ 名称随便写，勾选 <b>projects</b>、<b>issues</b>、<b>user_info</b> 权限即可</li>
+            <li>复制生成的 Token（以 <code style="color:#a78bfa;">a9</code> 或 <code style="color:#a78bfa;">c1</code> 等开头的一串字符），粘贴到下方</li>
+          </ol>
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <input type="text" id="gitee-token-input" placeholder="粘贴你的 Gitee Token..." style="flex:1;padding:0.6rem 0.9rem;border:1px solid rgba(167,139,250,0.3);border-radius:8px;background:rgba(0,0,0,0.35);color:#fff;font-size:0.9rem;outline:none;">
+            <button id="save-token-btn" style="padding:0.6rem 1.2rem;border:none;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:600;cursor:pointer;font-size:0.9rem;">保存</button>
+            <button id="clear-token-btn" style="padding:0.6rem 1rem;border:1px solid rgba(248,113,113,0.5);border-radius:8px;background:transparent;color:#f87171;font-weight:500;cursor:pointer;font-size:0.9rem;">清除</button>
+          </div>
+          <p id="token-status" style="margin:0.75rem 0 0 0;color:#6b7280;font-size:0.8rem;"></p>
+        </div>
+      </details>
+    </div>
+
     <div id="post-list" class="post-list">
       <div class="empty-state">
         <h3>加载中...</h3>
@@ -204,7 +227,7 @@
       return result;
     }
 
-    // ============ 搜索事件 ============
+    // ============ 搜索事件 + Token 管理 ============
     document.addEventListener('DOMContentLoaded', () => {
       const searchInput = document.getElementById('search-input');
       if (searchInput) {
@@ -212,6 +235,50 @@
           const keyword = e.target.value;
           const filteredPosts = fuzzySearch(allPosts, keyword);
           renderPosts(filteredPosts);
+        });
+      }
+
+      // Token 相关 UI
+      const tokenInput = document.getElementById('gitee-token-input');
+      const tokenSaveBtn = document.getElementById('save-token-btn');
+      const tokenClearBtn = document.getElementById('clear-token-btn');
+      const tokenStatus = document.getElementById('token-status');
+
+      function updateTokenStatus() {
+        if (!tokenStatus) return;
+        const t = getGiteeToken();
+        if (t) {
+          tokenStatus.innerHTML = '✅ 已设置 Token：<code style="color:#34d399;">' + escapeHtml(t.slice(0, 6)) + '********</code>（保存于浏览器本地）';
+          tokenStatus.style.color = '#34d399';
+        } else {
+          tokenStatus.innerHTML = '⚠️ 当前未设置 Token，匿名访问易被限流';
+          tokenStatus.style.color = '#f59e0b';
+        }
+      }
+
+      if (tokenInput) tokenInput.value = getGiteeToken();
+      updateTokenStatus();
+
+      if (tokenSaveBtn) {
+        tokenSaveBtn.addEventListener('click', () => {
+          const val = (tokenInput.value || '').trim();
+          if (!val) {
+            alert('请先粘贴 Token');
+            return;
+          }
+          setGiteeToken(val);
+          updateTokenStatus();
+          showToast('Token 已保存，正在重新加载...');
+          setTimeout(loadPosts, 500);
+        });
+      }
+
+      if (tokenClearBtn) {
+        tokenClearBtn.addEventListener('click', () => {
+          setGiteeToken('');
+          if (tokenInput) tokenInput.value = '';
+          updateTokenStatus();
+          showToast('Token 已清除');
         });
       }
     });
@@ -234,30 +301,34 @@ postLabel: 'blog'</pre>
         return;
       }
 
-      // 显示加载状态
+      const apiUrl = `https://gitee.com/api/v5/repos/${CONFIG.giteeUser}/${CONFIG.giteeRepo}/issues?labels=blog&state=open&per_page=100`;
+      const repoUrl = `https://gitee.com/${CONFIG.giteeUser}/${CONFIG.giteeRepo}`;
+      const newIssueUrl = `${repoUrl}/issues/new?labels=blog&title=文章标题`;
+
       container.innerHTML = `
         <div class="empty-state">
           <h3>⏳ 加载中...</h3>
           <p>正在从 Gitee 读取文章</p>
-          <p style="color:#6b7280;font-size:0.8rem;margin-top:0.5rem;">配置: ${CONFIG.giteeUser}/${CONFIG.giteeRepo}</p>
+          <p style="color:#6b7280;font-size:0.8rem;margin-top:0.5rem;">仓库: <a href="${repoUrl}" target="_blank" style="color:#a78bfa;">${CONFIG.giteeUser}/${CONFIG.giteeRepo}</a></p>
+          <p style="color:#4b5563;font-size:0.75rem;margin-top:0.25rem;">API: <a href="${apiUrl}" target="_blank" style="color:#6b7280;">点击直接查看</a></p>
         </div>
       `;
 
       try {
-        console.log('开始获取文章...');
-        console.log('Gitee 仓库:', `${CONFIG.giteeUser}/${CONFIG.giteeRepo}`);
-
         allPosts = await apiGetPosts();
-        console.log('获取到文章:', allPosts.length, '篇');
 
         if (allPosts.length === 0) {
           container.innerHTML = `
             <div class="empty-state">
               <h3>📝 还没有文章</h3>
-              <p>在 Gitee 仓库的 Issues 中新建一篇吧</p>
-              <p style="color:#6b7280;font-size:0.85rem;margin:0.5rem 0;">记得添加 <code>blog</code> 标签！</p>
-              <a href="${getNewIssueUrl()}" target="_blank" class="btn btn-primary" style="margin-top:1rem;">
-                ✍️ 去 Gitee 写文章
+              <p>仓库已连接，但没有带 <code>blog</code> 标签的 Issue</p>
+              <p style="color:#6b7280;font-size:0.85rem;margin:0.5rem 0;">
+                1. 去 <a href="${repoUrl}" target="_blank" style="color:#a78bfa;">Gitee 仓库</a> →
+                2. 新建 Issue →
+                3. 添加标签 <code style="color:#a78bfa;">blog</code>
+              </p>
+              <a href="${newIssueUrl}" target="_blank" class="btn btn-primary" style="margin-top:1rem;">
+                ✍️ 新建第一篇文章
               </a>
             </div>
           `;
@@ -267,17 +338,57 @@ postLabel: 'blog'</pre>
         renderPosts(allPosts);
       } catch (e) {
         console.error('加载失败:', e);
+        const msg = e.message || String(e);
+        let errorDetail = '';
+        let actionSteps = '';
+
+        if (msg.includes('404') || msg.includes('Not Found') || msg.includes('找不到')) {
+          errorDetail = '<p style="color:#ef4444;font-size:0.9rem;">⚠️ 仓库 <code>' + CONFIG.giteeUser + '/' + CONFIG.giteeRepo + '</code> 不存在或不是公开的</p>';
+          actionSteps = `
+            <li>✅ 确认你已在 <a href="https://gitee.com" target="_blank" style="color:#a78bfa;">Gitee</a> 创建了仓库 <code>${CONFIG.giteeRepo}</code></li>
+            <li>✅ 仓库设置为 <b>公开</b>（私有仓库 API 无法匿名访问）</li>
+            <li>✅ 访问 <a href="${repoUrl}" target="_blank" style="color:#a78bfa;">${repoUrl}</a> 确认能看到仓库首页</li>
+            <li>✅ 如未创建：<a href="https://gitee.com/projects/new" target="_blank" style="color:#a78bfa;">点击创建公开仓库</a>，名称填 <code>${CONFIG.giteeRepo}</code></li>
+          `;
+        } else if (msg.includes('403') || msg.includes('禁止') || msg.includes('Forbidden') || msg.includes('Rate')) {
+          const token = getGiteeToken();
+          if (!token) {
+            errorDetail = '<p style="color:#f59e0b;font-size:0.9rem;">⚠️ 被 Gitee 限流！匿名 API 每小时仅 60 次请求</p>';
+            actionSteps = `
+              <li>🔑 <b>最简单的解决方式</b>：在上方点击「Gitee API 被限流？点击设置 Access Token」，按步骤添加 Token 即可恢复</li>
+              <li>✅ 确认仓库是 <b>公开</b> 的：<a href="${repoUrl}" target="_blank" style="color:#a78bfa;">${repoUrl}</a></li>
+              <li>✅ 或稍后再试（每小时会重置请求次数）</li>
+            `;
+          } else {
+            errorDetail = '<p style="color:#f59e0b;font-size:0.9rem;">⚠️ Token 请求被拒绝，可能是 Token 无效或仓库非公开</p>';
+            actionSteps = `
+              <li>✅ 确认仓库是 <b>公开</b> 的：<a href="${repoUrl}" target="_blank" style="color:#a78bfa;">${repoUrl}</a></li>
+              <li>✅ 检查 Token 是否正确（完整粘贴，不要有多余空格）</li>
+              <li>✅ 打开 <a href="https://gitee.com/profile/personal_access_tokens" target="_blank" style="color:#a78bfa;">Token 设置页</a> 重新生成一个，勾选 <code>projects</code> + <code>issues</code> 权限</li>
+            `;
+          }
+        } else {
+          actionSteps = `
+            <li>✅ 访问 <a href="${repoUrl}" target="_blank" style="color:#a78bfa;">${CONFIG.giteeUser}/${CONFIG.giteeRepo}</a> 确认仓库存在且公开</li>
+            <li>✅ 在仓库中新建 Issue，并添加标签 <code>blog</code></li>
+            <li>✅ 确认 <code>app.js</code> 中 <code>giteeUser</code> 和 <code>giteeRepo</code> 正确</li>
+          `;
+        }
+
         container.innerHTML = `
           <div class="empty-state">
             <h3>❌ 加载失败</h3>
-            <p style="color:#9ca3af;font-size:0.9rem;">错误信息：${escapeHtml(e.message)}</p>
-            <div style="margin-top:1.5rem;text-align:left;display:inline-block;">
-              <p style="font-weight:500;margin-bottom:0.5rem;">请检查：</p>
-              <ul style="line-height:1.8;font-size:0.9rem;color:#6b7280;">
-                <li>仓库 <code>${CONFIG.giteeRepo}</code> 是否存在且公开</li>
-                <li>是否在 Issues 中创建了带 <code>blog</code> 标签的文章</li>
-                <li>Gitee 用户名 <code>${CONFIG.giteeUser}</code> 是否正确</li>
-              </ul>
+            <p style="color:#f87171;font-size:0.9rem;font-weight:500;">${escapeHtml(msg)}</p>
+            ${errorDetail}
+            <div style="margin-top:1.5rem;text-align:left;display:inline-block;max-width:520px;">
+              <p style="font-weight:500;margin-bottom:0.5rem;color:#fff;">🆘 请按以下步骤确认：</p>
+              <ol style="line-height:2;font-size:0.9rem;color:#d1d5db;padding-left:1.5rem;">
+                ${actionSteps}
+              </ol>
+              <p style="color:#6b7280;font-size:0.8rem;margin-top:1rem;">
+                🛠️ 调试：
+                <a href="${apiUrl}" target="_blank" style="color:#a78bfa;">点击查看 API 原始返回</a>
+              </p>
             </div>
           </div>
         `;

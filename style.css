@@ -188,6 +188,55 @@ img { max-width: 100%; border-radius: 8px; }
   white-space: nowrap;
 }
 
+/* ============ Token Box ============ */
+.token-box {
+  margin-bottom: 1.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  transition: all 0.3s ease;
+}
+.token-box details[open] {
+  border-color: rgba(167, 139, 250, 0.35);
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.08);
+}
+.token-box summary {
+  cursor: pointer;
+  color: #e0e0e0;
+  font-weight: 600;
+  outline: none;
+  user-select: none;
+  padding: 0.25rem 0;
+  list-style: none;
+}
+.token-box summary::-webkit-details-marker { display: none; }
+.token-box summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 0.5rem;
+  color: #a78bfa;
+  transition: transform 0.25s;
+}
+.token-box details[open] summary::before { transform: rotate(90deg); }
+.token-box .token-panel {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.token-box .token-panel code {
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+}
+.token-box input[type="text"]:focus {
+  border-color: rgba(167, 139, 250, 0.6) !important;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.1);
+}
+
 /* ============ Post List ============ */
 .post-list { display: flex; flex-direction: column; gap: 1.2rem; }
 .post-card {
